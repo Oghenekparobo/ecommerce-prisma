@@ -4,17 +4,32 @@ import { useRouter } from "next/router";
 import { getProducts } from "lib/data";
 import prisma from "lib/prisma";
 import Image from "next/image";
+import { useState } from "react";
+import { useEffect } from "react";
+import * as localForage from "localforage";
 
-export default function Home({products}) {
+export default function Home({ products }) {
+  const [cart, setCart] = useState([]);
   const { data: session, status } = useSession();
   const router = useRouter();
 
+  useEffect(() => {
+    localForage.getItem("cart", function (err, value) {
+      if (value) {
+        setCart(value);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    localForage.setItem("cart", cart);
+  }, [cart]);
+
+
   if (status === "loading") return "wait a lil bit, page is loading";
 
-  
   if (session.user.isAdmin) {
     router.push("/admin");
-
   }
 
   return (
@@ -26,22 +41,89 @@ export default function Home({products}) {
       </Head>
 
       <div className="text-center mt-10">
-        <a href="api/auth/signin" className=" font-extrabold text-2xl">
-          Shop
-        </a>
+        <h1>
+          {" "}
+          <a href="api/auth/signin" className=" font-extrabold text-2xl">
+            Shop
+          </a>
+        </h1>
 
-        <div className='mt-20 sm:mx-auto max-w-4xl mx-10'>
-          {products.map((product) => (
-            <div className='mb-4 grid sm:grid-cols-2' key={product.id}>
-              <div>
-                <Image alt="image" src={`/` + product.image + `.jpg`} width={'600'} height={'600'} />
+        {cart.length > 0 && (
+          <div className="mt-20 sm:mx-auto max-w-4xl mx-10 border-2 border-red-400">
+            <h3 className="py-2 font-extrabold text-2xl text-center">
+              Your cart
+            </h3>
+            {cart.map((item, index) => (
+              <div
+                key={index}
+                className="px-4 py-2 border-y border-fuchsia-400 flex"
+              >
+                <div className="block mt-2">
+                  <Image
+                    alt="image"
+                    src={`/` + item.product.image + ".jpg"}
+                    width={"50"}
+                    height={"50"}
+                    className=""
+                  />
+                </div>
+                <div className="mt-5 pl-4">
+                  <span className="font-bold">{item.product.title}</span> -
+                  quantity: {item.quantity}
+                </div>
+
+                <button
+                  className="mx-auto bg-black text-white px-3 py-1 my-4 text-sm justify-center flex"
+                  onClick={() => setCart([])}
+                >
+                  Clear cart
+                </button>
               </div>
-              <div className='sm:ml-10 mb-20 sm:mb-0'>
-                <h2 className='text-3xl font-extrabold'>{product.title}</h2>
-                <h3 className='text-2xl font-extrabold mb-4'>
+            ))}{" "}
+          </div>
+        )}
+
+        <div className="mt-20 sm:mx-auto max-w-4xl mx-10">
+          {products.map((product) => (
+            <div className="mb-4 grid sm:grid-cols-2" key={product.id}>
+              <div>
+                <Image
+                  alt="image"
+                  src={`/` + product.image + `.jpg`}
+                  width={"600"}
+                  height={"600"}
+                />
+              </div>
+              <div className="sm:ml-10 mb-20 sm:mb-0">
+                <h2 className="text-3xl font-extrabold">{product.title}</h2>
+                <h3 className="text-2xl font-extrabold mb-4">
                   ${product.price / 100}
                 </h3>
-                <p className='text-xl'>{product.description}</p>
+                <button
+                  className="mb-4 mx-auto bg-black text-white px-3 py-1 text-lg  hover:bg-slate-900 hover:font-bold rounded shadow"
+                  onClick={() => {
+                    const itemsAlreadyInCart = cart.filter((item) => {
+                      return item.product.id === product.id;
+                    });
+
+                    if (itemsAlreadyInCart.length > 0) {
+                      setCart([
+                        ...cart.filter((item) => {
+                          return item.product.id !== product.id;
+                        }),
+                        {
+                          product: itemsAlreadyInCart[0].product,
+                          quantity: itemsAlreadyInCart[0].quantity + 1,
+                        },
+                      ]);
+                    } else {
+                      setCart([...cart, { product, quantity: 1 }]);
+                    }
+                  }}
+                >
+                  Add to cart
+                </button>
+                <p className="text-xl">{product.description}</p>
               </div>
             </div>
           ))}
