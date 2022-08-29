@@ -7,6 +7,7 @@ import Image from "next/image";
 import { useState } from "react";
 import { useEffect } from "react";
 import * as localForage from "localforage";
+import Script from "next/script";
 
 export default function Home({ products }) {
   const [cart, setCart] = useState([]);
@@ -25,7 +26,6 @@ export default function Home({ products }) {
     localForage.setItem("cart", cart);
   }, [cart]);
 
-
   if (status === "loading") return "wait a lil bit, page is loading";
 
   if (session.user.isAdmin) {
@@ -34,6 +34,7 @@ export default function Home({ products }) {
 
   return (
     <div>
+      <Script src="https://js.stripe.com/v3/" />
       <Head>
         <title>Shop</title>
         <meta name="description" content="Shop" />
@@ -71,6 +72,40 @@ export default function Home({ products }) {
                   <span className="font-bold">{item.product.title}</span> -
                   quantity: {item.quantity}
                 </div>
+
+                <button
+                  className="mx-auto bg-black text-white px-3 py-1 my-4 text-xl font-bold justify-center flex focus:bg-slate-500 hover:bg-slate-500"
+                  onClick={async () => {
+                    const res = await fetch("api/stripe/session", {
+                      body: JSON.stringify({
+                        cart,
+                      }),
+                      headers: {
+                        "Content-Type": "application/json",
+                      },
+                      method: "POST",
+                    });
+
+                    const data = await res.json();
+
+                    if (data.status === "error") {
+                      alert(data.message);
+                      return;
+                    }
+
+                    const sessionId = data.sessionId;
+                    const stripePublicKey = data.stripePublicKey;
+
+                    const stripe = Stripe(stripePublicKey);
+                    const { error } = await stripe.redirectToCheckout({
+                      sessionId,
+                    });
+
+                    setCart([]);
+                  }}
+                >
+                  Go to checkout
+                </button>
 
                 <button
                   className="mx-auto bg-black text-white px-3 py-1 my-4 text-sm justify-center flex"
